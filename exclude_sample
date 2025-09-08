@@ -1,0 +1,23 @@
+# Exclude file for mgit
+# List folders that might contain git repos but should be ignored
+# This file works similar to .gitignore patterns
+
+# Ignore specific repo folders
+archived-projects
+old-code
+legacy
+vendor
+third-party
+
+# Ignore temporary or backup repo folders
+*-backup
+*-old
+*-archive
+tmp-*
+
+# Ignore all folders starting with underscore
+_*
+
+# Example: ignore specific project folders
+# my-old-project
+# experimental-stuff

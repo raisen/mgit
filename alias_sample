@@ -1,0 +1,9 @@
+# Alias file for mgit
+# Format: folder_name=display_alias
+# Use this to show shorter or more descriptive names in the table
+
+# Example aliases
+core-tech-webapp=webapp
+sales_demo_tool=demo
+core-api-transcribe-service=transcribe
+core-infrastructure=infra
