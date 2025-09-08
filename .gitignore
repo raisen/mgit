@@ -45,9 +45,7 @@ coverage.xml
 .pytest_cache/
 
 # Linting and type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
+.pyright_cache/
 .ruff_cache/
 
 # IDE and editor files

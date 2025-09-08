@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 import re
 
 
@@ -94,16 +94,13 @@ class ProgressiveDisplay:
             self.header_printed = True
             self.current_line = 3
 
-    def format_repo_line(self, result: Any) -> str:
-        """Format a repository line for display"""
-        # Keep this for backward compatibility but not used by new update_display
-        return ""
+
 
     def update_display(self, results: Dict[str, Any], phase: str = "") -> None:
         """Update the display with current results"""
         # Build rows first to compute dynamic widths (ANSI-aware)
         sorted_results = sorted(results.values(), key=lambda r: r.display_name)
-        rows = []
+        rows: List[Tuple[str, str, str, str, str]] = []
         for result in sorted_results:
             spinner_char = self.spinner_chars[self.spinner_index % len(self.spinner_chars)]
 

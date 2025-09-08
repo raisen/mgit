@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Tuple
 
 
 class Colors:
@@ -60,7 +60,7 @@ class RepoDisplay:
         repos = sorted(repos, key=lambda r: r.display_name)
 
         # Prepare all rows first to compute max visible length for each column
-        rows = []
+        rows: List[Tuple[str, str, str, str, str]] = []
         for repo in repos:
             unstaged = str(repo.unstaged_changes)
             branch = str(repo.current_branch)

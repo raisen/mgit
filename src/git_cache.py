@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, cast
 
 
 class GitCache:
@@ -23,7 +23,10 @@ class GitCache:
         try:
             with open(self.cache_file, "r") as f:
                 data = json.load(f)
-                return data if isinstance(data, dict) else {}
+                if isinstance(data, dict):
+                    # Cast to Dict[str, Any] since we know JSON structure
+                    return cast(Dict[str, Any], data)
+                return {}
         except (json.JSONDecodeError, IOError):
             return {}
 
@@ -42,7 +45,7 @@ class GitCache:
     def _get_git_mtime(self, repo_path: Path) -> float:
         """Get modification time of git index and HEAD"""
         git_dir = repo_path / ".git"
-        times = []
+        times: list[float] = []
 
         # Check .git/index (staging area changes)
         index_file = git_dir / "index"
@@ -69,23 +72,23 @@ class GitCache:
         if repo_key not in self._cache_data:
             return False
 
-        cached_mtime = self._cache_data[repo_key].get("mtime", 0)
+        repo_cache = cast(Dict[str, Any], self._cache_data[repo_key])
+        cached_mtime = repo_cache.get("mtime", 0)
         current_mtime = self._get_git_mtime(repo_path)
 
         # Ensure we're comparing numbers
-        if isinstance(cached_mtime, (int, float)) and isinstance(
-            current_mtime, (int, float)
-        ):
-            return cached_mtime >= current_mtime
-        return False
+        if not isinstance(cached_mtime, (int, float)):
+            return False
+
+        return cached_mtime >= current_mtime
 
     def get_cached_data(self, repo_path: Path) -> Dict[str, Any]:
         """Get cached data for repository"""
         repo_key = self._get_repo_key(repo_path)
-        repo_data = self._cache_data.get(repo_key, {})
-        if isinstance(repo_data, dict):
-            cached_data = repo_data.get("data", {})
-            return cached_data if isinstance(cached_data, dict) else {}
+        repo_data = cast(Dict[str, Any], self._cache_data.get(repo_key, {}))
+        cached_data = repo_data.get("data", {})
+        if isinstance(cached_data, dict):
+            return cast(Dict[str, Any], cached_data)
         return {}
 
     def set_cache_data(self, repo_path: Path, data: Dict[str, Any]) -> None:

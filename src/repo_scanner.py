@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Any
+from typing import List
 from git_utils import GitRepo
 from exclude_parser import ExcludeParser
 from alias_parser import AliasParser
@@ -12,12 +12,12 @@ class RepoScanner:
         self.alias_parser = AliasParser()
         self.cache = GitCache()
 
-    def scan_current_directory(self, use_real_names: bool = False) -> List[Any]:
+    def scan_current_directory(self, use_real_names: bool = False) -> List[GitRepo]:
         """Scan current directory for git repositories"""
         current_dir = Path.cwd()
         excludes = self.exclude_parser.get_excludes(current_dir)
         self.alias_parser.load_aliases(current_dir)
-        repos = []
+        repos: List[GitRepo] = []
 
         for item in current_dir.iterdir():
             if item.is_dir() and not item.name.startswith("."):
@@ -31,6 +31,6 @@ class RepoScanner:
 
         # Save cache after processing all repos
         for repo in repos:
-            repo._save_to_cache()
+            repo._save_to_cache()  # type: ignore[attr-defined]
 
         return repos

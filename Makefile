@@ -14,15 +14,15 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 
 # Install development dependencies
-install-dev: ## Install development dependencies (ruff, mypy, pyinstaller)
+install-dev: ## Install development dependencies (ruff, pyright, pyinstaller)
 	@echo "Installing development dependencies..."
-	pip3 install ruff mypy pyinstaller
+	pip3 install ruff pyright pyinstaller
 
 # Build standalone executable
 build: ## Build standalone executable with PyInstaller
 	@echo "Building standalone executable..."
-	@echo "This will create a single executable file in dist/ directory"
-	pyinstaller --onefile --name mgit \
+	@echo "This will create a directory with executable in dist/ directory"
+	pyinstaller --onedir --name mgit \
 		--paths src \
 		--hidden-import concurrent.futures \
 		--hidden-import concurrent \
@@ -31,9 +31,9 @@ build: ## Build standalone executable with PyInstaller
 		--hidden-import pathlib \
 		--hidden-import argparse \
 		--hidden-import typing \
-		mgit
-	@echo "Build complete! Executable created at: dist/mgit"
-	@echo "You can run it with: ./dist/mgit --help"
+		src/main.py
+	@echo "Build complete! Executable created at: dist/mgit/mgit"
+	@echo "You can run it with: ./dist/mgit/mgit --help"
 
 # Clean build artifacts
 clean-build: ## Clean build artifacts and dist directory
@@ -52,10 +52,10 @@ format: ## Format code with ruff
 	@echo "Formatting code with ruff..."
 	ruff format $(SRC_FILES)
 
-# Type check with mypy
-typecheck: ## Run mypy type checker
-	@echo "Running mypy type checker..."
-	mypy $(SRC_FILES) --strict --ignore-missing-imports
+# Type check with pyright
+typecheck: ## Run pyright type checker
+	@echo "Running pyright type checker..."
+	pyright $(SRC_FILES)
 
 # Run all checks
 check: lint typecheck ## Run all linting and type checking
@@ -71,7 +71,7 @@ clean: ## Clean up cache files and temporary files
 	@echo "Cleaning cache files..."
 	find $(MGIT_DIR) -type f -name "*.pyc" -delete
 	find $(MGIT_DIR) -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find $(MGIT_DIR) -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	find $(MGIT_DIR) -type d -name ".pyright_cache" -exec rm -rf {} + 2>/dev/null || true
 	find $(MGIT_DIR) -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf build/
 	rm -rf dist/

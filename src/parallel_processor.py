@@ -16,10 +16,7 @@ class RepoResult:
     repo_url: Optional[str] = None
     errors: Optional[Dict[str, str]] = None
 
-    @property
-    def has_pr(self) -> bool:
-        """Backward compatibility property"""
-        return bool(self.pr_info and self.pr_info.get("exists", False))
+
 
     def __post_init__(self) -> None:
         if self.errors is None:
@@ -55,7 +52,7 @@ class ParallelRepoProcessor:
 
     def process_repo_slow(self, repo: Any) -> Tuple[str, Dict[str, Any]]:
         """Process slow network operations"""
-        updates = {}
+        updates: Dict[str, Any] = {}
 
         try:
             updates["pr_info"] = repo._check_pr_exists()

@@ -1,7 +1,7 @@
 import subprocess
 import json
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, cast
 from git_cache import GitCache
 
 
@@ -25,13 +25,13 @@ class GitRepo:
         """Load cached data if available and valid"""
         if self.cache.is_cached_valid(self.path):
             cached = self.cache.get_cached_data(self.path)
-            self._cached_data = cached if isinstance(cached, dict) else {}
+            self._cached_data = cached
         else:
             self._cached_data = {}
 
     def _save_to_cache(self) -> None:
         """Save current data to cache"""
-        data = {}
+        data: Dict[str, Any] = {}
         if "unstaged_changes" in self._cached_data:
             data["unstaged_changes"] = self._cached_data["unstaged_changes"]
         if "current_branch" in self._cached_data:
@@ -71,20 +71,14 @@ class GitRepo:
     def pr_info(self) -> Dict[str, Any]:
         if "pr_info" in self._cached_data:
             cached_value = self._cached_data["pr_info"]
-            return (
-                cached_value
-                if isinstance(cached_value, dict)
-                else {"exists": False, "number": None, "url": None}
-            )
+            if isinstance(cached_value, dict):
+                return cast(Dict[str, Any], cached_value)
+            return {"exists": False, "number": None, "url": None}
         result = self._check_pr_exists()
         self._cached_data["pr_info"] = result
         return result
 
-    @property
-    def has_pr(self) -> bool:
-        """Backward compatibility property"""
-        pr_info = self.pr_info
-        return bool(pr_info.get("exists", False))
+
 
     @property
     def is_remote_updated(self) -> bool:
@@ -99,7 +93,9 @@ class GitRepo:
     def sync_status(self) -> Dict[str, Any]:
         if "sync_status" in self._cached_data:
             cached_value = self._cached_data["sync_status"]
-            return cached_value if isinstance(cached_value, dict) else {"status": "unknown", "ahead": 0, "behind": 0}
+            if isinstance(cached_value, dict):
+                return cast(Dict[str, Any], cached_value)
+            return {"status": "unknown", "ahead": 0, "behind": 0}
         result = self._get_sync_status()
         self._cached_data["sync_status"] = result
         return result
