@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version_bump:
@@ -207,10 +207,21 @@ jobs:
         for dir in mgit-*; do
           if [ -d "$dir" ]; then
             cd "$dir"
+            unzip -l *.zip
             unzip *.zip
             cd ..
           fi
         done
+
+    - name: List artifacts
+      run: find artifacts -type f
+
+    - name: Check file existence
+      run: |
+        ls -la ./artifacts/mgit-linux/mgit-linux.zip || echo "Linux zip missing"
+        ls -la ./artifacts/mgit-macos/mgit-macos.zip || echo "macOS zip missing"
+        ls -la ./setup-macos.sh || echo "Setup script missing"
+        ls -la ./artifacts/mgit-windows/mgit-windows.zip || echo "Windows zip missing"
 
     - name: Create release
       uses: softprops/action-gh-release@v2
@@ -256,8 +267,8 @@ jobs:
         prerelease: false
         overwrite_files: false
         files: |
-          ./artifacts/mgit-linux/mgit-linux/mgit
-          ./artifacts/mgit-macos/mgit-macos/mgit
+          ./artifacts/mgit-linux/mgit-linux.zip
+          ./artifacts/mgit-macos/mgit-macos.zip
           ./setup-macos.sh
-          ./artifacts/mgit-windows/mgit-windows/mgit.exe
+          ./artifacts/mgit-windows/mgit-windows.zip
 
