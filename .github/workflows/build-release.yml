@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version_bump:
@@ -211,6 +211,9 @@ jobs:
             cd ..
           fi
         done
+
+    - name: List artifacts
+      run: find artifacts -type f
 
     - name: Create release
       uses: softprops/action-gh-release@v2
