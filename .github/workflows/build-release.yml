@@ -27,6 +27,9 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
 
     steps:
     - name: Checkout code
@@ -149,6 +152,11 @@ jobs:
       run: |
         make build
 
+    - name: Install 7zip (Windows)
+      if: matrix.os == 'windows-latest'
+      run: choco install 7zip.install
+      shell: powershell
+
     - name: Rename executable for platform
       shell: bash
       run: |
@@ -159,8 +167,8 @@ jobs:
           mv dist/mgit dist/mgit-macos
           cd dist && zip -r mgit-macos.zip mgit-macos/
         elif [ "${{ matrix.platform }}" == "windows" ]; then
-          mv dist/mgit.exe dist/mgit-windows
-          cd dist && zip -r mgit-windows.zip mgit-windows/
+          mv dist/mgit dist/mgit-windows
+          cd dist && 7z a -tzip mgit-windows.zip mgit-windows/
         fi
 
     - name: Remove macOS quarantine attribute
@@ -195,8 +203,12 @@ jobs:
     - name: Unzip artifacts
       run: |
         cd artifacts
-        for zip in *.zip; do
-          unzip "$zip"
+        for dir in mgit-*; do
+          if [ -d "$dir" ]; then
+            cd "$dir"
+            unzip *.zip
+            cd ..
+          fi
         done
 
     - name: Create release
@@ -243,10 +255,10 @@ jobs:
         prerelease: false
         overwrite: true
         files: |
-          ./artifacts/mgit-linux/mgit
-          ./artifacts/mgit-macos/mgit
+          ./artifacts/mgit-linux/mgit-linux/mgit
+          ./artifacts/mgit-macos/mgit-macos/mgit
           ./setup-macos.sh
-          ./artifacts/mgit-windows/mgit.exe
+          ./artifacts/mgit-windows/mgit-windows/mgit.exe
 
   # Optional: Test the built executables
   test-release:
