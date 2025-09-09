@@ -57,9 +57,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
 
-    - name: Install project dependencies
-      run: pip install -r requirements.txt
-
     - name: Build executable
       run: |
         pyinstaller --onedir src/main.py --name mgit
