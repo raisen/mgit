@@ -4,131 +4,38 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      version_bump:
-        description: 'Version bump type'
-        required: false
-        default: 'patch'
-        type: choice
-        options:
-        - patch
-        - minor
-        - major
+    paths:
+      - 'src/_version.py'
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  prepare-release:
-    name: Prepare Release
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Get current version
-      id: current_version
-      run: |
-        if [ -f "src/version.py" ]; then
-          VERSION=$(grep '__version__' src/version.py | sed 's/.*= "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-        elif [ -f "pyproject.toml" ]; then
-          VERSION=$(grep '^version =' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-        else
-          echo "version=1.0.0" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Calculate new version
-      id: version
-      run: |
-        CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
-        BUMP_TYPE="${{ github.event.inputs.version_bump || 'patch' }}"
-
-        # Parse version
-        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-
-        case $BUMP_TYPE in
-          major)
-            NEW_VERSION="$((MAJOR + 1)).0.0"
-            ;;
-          minor)
-            NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
-            ;;
-          patch)
-            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-            ;;
-          *)
-            NEW_VERSION="$CURRENT_VERSION"
-            ;;
-        esac
-
-        # Add timestamp to make unique tags
-        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-        UNIQUE_VERSION="$NEW_VERSION-$TIMESTAMP"
-        
-        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "tag=v$UNIQUE_VERSION" >> $GITHUB_OUTPUT
-
-    - name: Update version in files
-      run: |
-        NEW_VERSION="${{ steps.version.outputs.version }}"
-        TAG="${{ steps.version.outputs.tag }}"
-
-        # Update version.py
-        if [ -f "src/version.py" ]; then
-          sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" src/version.py
-        fi
-
-        # Update pyproject.toml
-        if [ -f "pyproject.toml" ]; then
-          sed -i "s/version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
-        fi
-
-    - name: Create tag
-      run: |
-        TAG="${{ steps.version.outputs.tag }}"
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add .
-        git commit -m "Bump version to $TAG" || true
-        # Delete existing tag if it exists
-        git tag -d "$TAG" || true
-        git push origin :"$TAG" || true
-        # Create new tag
-        git tag "$TAG"
-        git push origin "$TAG"
-
   build:
     name: Build for ${{ matrix.os }}
-    needs: prepare-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             platform: linux
-            executable_name: mgit
           - os: macos-latest
             platform: macos
-            executable_name: mgit
           - os: windows-2022
             platform: windows
-            executable_name: mgit.exe
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        ref: ${{ needs.prepare-release.outputs.tag }}
+
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -141,134 +48,96 @@ jobs:
         pip install pyinstaller
 
     - name: Install project dependencies
-      run: |
-        pip install ruff pyright
-
-    - name: Run code quality checks
-      run: |
-        make check
-      continue-on-error: true
+      run: pip install -r requirements.txt
 
     - name: Build executable
       run: |
-        make build
+        pyinstaller --onedir src/main.py --name mgit
 
     - name: Install 7zip (Windows)
-      if: matrix.os == 'windows-latest'
+      if: matrix.os == 'windows-2022'
       run: choco install 7zip.install
       shell: powershell
 
-    - name: Rename executable for platform
+    - name: Create ZIP
       shell: bash
       run: |
+        VERSION=${{ steps.version.outputs.version }}
         if [ "${{ matrix.platform }}" == "linux" ]; then
-          mv dist/mgit dist/mgit-linux
-          cd dist && zip -r mgit-linux.zip mgit-linux/
+          cd dist && zip -r mgit-linux-$VERSION.zip mgit/
         elif [ "${{ matrix.platform }}" == "macos" ]; then
-          mv dist/mgit dist/mgit-macos
-          cd dist && zip -r mgit-macos.zip mgit-macos/
+          cd dist && zip -r mgit-mac-$VERSION.zip mgit/
         elif [ "${{ matrix.platform }}" == "windows" ]; then
-          mv dist/mgit dist/mgit-windows
-          cd dist && 7z a -tzip mgit-windows.zip mgit-windows/
+          cd dist && 7z a -tzip mgit-win-$VERSION.zip mgit/
         fi
 
-    - name: Remove macOS quarantine attribute
-      if: matrix.os == 'macos-latest'
-      run: |
-        xattr -d com.apple.quarantine dist/mgit-macos || true
-
-    - name: Upload build artifacts
+    - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: mgit-${{ matrix.platform }}
+        name: ${{ matrix.platform }}-zip
         path: |
-          dist/mgit-${{ matrix.platform }}.zip
-        retention-days: 30
+          dist/mgit-${{ matrix.platform }}-${{ steps.version.outputs.version }}.zip
 
-  release:
-    name: Create Release
-    needs: [prepare-release, build]
+  build-source:
+    name: Build Source ZIP
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create source ZIP
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        zip -r mgit-src-$VERSION.zip . -x ".git/*" ".github/*" "dist/*" "build/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" ".ruff_cache/*" ".mypy_cache/*"
+
+    - name: Upload source artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: source-zip
+        path: mgit-src-${{ steps.version.outputs.version }}.zip
+
+  release:
+    name: Create Release
+    needs: [build, build-source]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
-      env:
-        NODE_OPTIONS: --no-deprecation
       with:
         path: artifacts
 
-    - name: Unzip artifacts
-      run: |
-        cd artifacts
-        for dir in mgit-*; do
-          if [ -d "$dir" ]; then
-            cd "$dir"
-            unzip -l *.zip
-            unzip *.zip
-            cd ..
-          fi
-        done
-
-    - name: List artifacts
-      run: find artifacts -type f
-
-    - name: Check file existence
-      run: |
-        ls -la ./artifacts/mgit-linux/mgit-linux.zip || echo "Linux zip missing"
-        ls -la ./artifacts/mgit-macos/mgit-macos.zip || echo "macOS zip missing"
-        ls -la ./setup-macos.sh || echo "Setup script missing"
-        ls -la ./artifacts/mgit-windows/mgit-windows.zip || echo "Windows zip missing"
-
     - name: Create release
       uses: softprops/action-gh-release@v2
-      env:
-        NODE_OPTIONS: --no-deprecation
       with:
-        tag_name: ${{ needs.prepare-release.outputs.tag }}
-        name: Release ${{ needs.prepare-release.outputs.version }}
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release ${{ steps.version.outputs.version }}
         body: |
-          ## Changes
-
-          See the [changelog](https://github.com/${{ github.repository }}/blob/main/README.md#changelog) for details.
-
           ## Downloads
 
-          This release includes pre-built executables for multiple platforms as ZIP files:
-
-          - **Linux**: `mgit-linux.zip` (contains `mgit-linux/mgit`)
-          - **macOS**: `mgit-macos.zip` (contains `mgit-macos/mgit`) + `setup-macos.sh` (setup script)
-          - **Windows**: `mgit-windows.zip` (contains `mgit-windows/mgit.exe`)
-
-          ## Installation
-
-          1. Download the ZIP file for your platform.
-          2. Unzip the file (this creates a directory with the executable and dependencies).
-          3. Make it executable (Linux/macOS): `chmod +x mgit*/mgit*`
-          4. Move to a directory in your PATH or run directly: `./mgit*/mgit* --help`
-
-          **macOS Security Note**: If you get a security warning ("Apple could not verify..."), right-click the executable and select "Open", or run in Terminal: `xattr -d com.apple.quarantine /path/to/mgit-macos/mgit`
-
-          **Note**: The ZIP contains a directory with the executable and its dependencies. You can run it directly from the directory or move the entire directory to your PATH.
-
-          ## Usage
-
-          ```bash
-          ./mgit-linux/mgit --help    # Linux
-          ./mgit-macos/mgit --help    # macOS
-          ./mgit-windows/mgit.exe --help  # Windows
-          ```
-
-          **Directory Structure Note**: After unzipping, you'll have a directory (e.g., `mgit-macos`) with the executable inside. Run the executable from within that directory.
-        draft: false
-        prerelease: false
-        overwrite_files: false
+          - **Linux**: `mgit-linux-${{ steps.version.outputs.version }}.zip`
+          - **macOS**: `mgit-mac-${{ steps.version.outputs.version }}.zip`
+          - **Windows**: `mgit-win-${{ steps.version.outputs.version }}.zip`
+          - **Source**: `mgit-src-${{ steps.version.outputs.version }}.zip`
         files: |
-          ./artifacts/mgit-linux/mgit-linux.zip
-          ./artifacts/mgit-macos/mgit-macos.zip
-          ./setup-macos.sh
-          ./artifacts/mgit-windows/mgit-windows.zip
+          ./artifacts/linux-zip/mgit-linux-${{ steps.version.outputs.version }}.zip
+          ./artifacts/macos-zip/mgit-mac-${{ steps.version.outputs.version }}.zip
+          ./artifacts/windows-zip/mgit-win-${{ steps.version.outputs.version }}.zip
+          ./artifacts/source-zip/mgit-src-${{ steps.version.outputs.version }}.zip
 
