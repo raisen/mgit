@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version_bump:
@@ -211,6 +211,16 @@ jobs:
             cd ..
           fi
         done
+
+    - name: List artifacts
+      run: find artifacts -type f
+
+    - name: Check file existence
+      run: |
+        ls -la ./artifacts/mgit-linux/mgit-linux/mgit || echo "Linux file missing"
+        ls -la ./artifacts/mgit-macos/mgit-macos/mgit || echo "macOS file missing"
+        ls -la ./setup-macos.sh || echo "Setup script missing"
+        ls -la ./artifacts/mgit-windows/mgit-windows/mgit.exe || echo "Windows file missing"
 
     - name: Create release
       uses: softprops/action-gh-release@v2
