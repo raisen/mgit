@@ -14,8 +14,25 @@ permissions:
   contents: write
 
 jobs:
+  get-version:
+    name: Get Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
   build:
     name: Build for ${{ matrix.os }}
+    needs: get-version
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,12 +47,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Get version
-      id: version
-      run: |
-        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -62,7 +73,7 @@ jobs:
     - name: Create ZIP
       shell: bash
       run: |
-        VERSION=${{ steps.version.outputs.version }}
+        VERSION=${{ needs.get-version.outputs.version }}
         if [ "${{ matrix.platform }}" == "linux" ]; then
           cd dist && zip -r mgit-linux-$VERSION.zip mgit/
         elif [ "${{ matrix.platform }}" == "macos" ]; then
@@ -76,47 +87,36 @@ jobs:
       with:
         name: ${{ matrix.platform }}-zip
         path: |
-          dist/mgit-${{ matrix.platform }}-${{ steps.version.outputs.version }}.zip
+          dist/mgit-${{ matrix.platform }}-${{ needs.get-version.outputs.version }}.zip
 
   build-source:
     name: Build Source ZIP
+    needs: get-version
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Get version
-      id: version
-      run: |
-        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-
     - name: Create source ZIP
       run: |
-        VERSION=${{ steps.version.outputs.version }}
+        VERSION=${{ needs.get-version.outputs.version }}
         zip -r mgit-src-$VERSION.zip . -x ".git/*" ".github/*" "dist/*" "build/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" ".ruff_cache/*" ".mypy_cache/*"
 
     - name: Upload source artifact
       uses: actions/upload-artifact@v4
       with:
         name: source-zip
-        path: mgit-src-${{ steps.version.outputs.version }}.zip
+        path: mgit-src-${{ needs.get-version.outputs.version }}.zip
 
   release:
     name: Create Release
-    needs: [build, build-source]
+    needs: [get-version, build, build-source]
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Get version
-      id: version
-      run: |
-        VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Download all artifacts
       uses: actions/download-artifact@v4
@@ -126,18 +126,18 @@ jobs:
     - name: Create release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ steps.version.outputs.version }}
-        name: Release ${{ steps.version.outputs.version }}
+        tag_name: v${{ needs.get-version.outputs.version }}
+        name: Release ${{ needs.get-version.outputs.version }}
         body: |
           ## Downloads
 
-          - **Linux**: `mgit-linux-${{ steps.version.outputs.version }}.zip`
-          - **macOS**: `mgit-mac-${{ steps.version.outputs.version }}.zip`
-          - **Windows**: `mgit-win-${{ steps.version.outputs.version }}.zip`
-          - **Source**: `mgit-src-${{ steps.version.outputs.version }}.zip`
+          - **Linux**: `mgit-linux-${{ needs.get-version.outputs.version }}.zip`
+          - **macOS**: `mgit-mac-${{ needs.get-version.outputs.version }}.zip`
+          - **Windows**: `mgit-win-${{ needs.get-version.outputs.version }}.zip`
+          - **Source**: `mgit-src-${{ needs.get-version.outputs.version }}.zip`
         files: |
-          ./artifacts/linux-zip/mgit-linux-${{ steps.version.outputs.version }}.zip
-          ./artifacts/macos-zip/mgit-mac-${{ steps.version.outputs.version }}.zip
-          ./artifacts/windows-zip/mgit-win-${{ steps.version.outputs.version }}.zip
-          ./artifacts/source-zip/mgit-src-${{ steps.version.outputs.version }}.zip
+          ./artifacts/linux-zip/mgit-linux-${{ needs.get-version.outputs.version }}.zip
+          ./artifacts/macos-zip/mgit-mac-${{ needs.get-version.outputs.version }}.zip
+          ./artifacts/windows-zip/mgit-win-${{ needs.get-version.outputs.version }}.zip
+          ./artifacts/source-zip/mgit-src-${{ needs.get-version.outputs.version }}.zip
 
