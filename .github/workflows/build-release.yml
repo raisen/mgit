@@ -69,11 +69,11 @@ jobs:
       run: |
         VERSION=${{ needs.get-version.outputs.version }}
         if [ "${{ matrix.platform }}" == "linux" ]; then
-          cd dist && zip -r mgit-linux-$VERSION.zip mgit/
+          cd dist && zip -r mgit-${{ matrix.platform }}-$VERSION.zip mgit/
         elif [ "${{ matrix.platform }}" == "macos" ]; then
-          cd dist && zip -r mgit-mac-$VERSION.zip mgit/
+          cd dist && zip -r mgit-${{ matrix.platform }}-$VERSION.zip mgit/
         elif [ "${{ matrix.platform }}" == "windows" ]; then
-          cd dist && 7z a -tzip mgit-win-$VERSION.zip mgit/
+          cd dist && 7z a -tzip mgit-${{ matrix.platform }}-$VERSION.zip mgit/
         fi
 
     - name: Upload build artifact
@@ -83,29 +83,9 @@ jobs:
         path: |
           dist/mgit-${{ matrix.platform }}-${{ needs.get-version.outputs.version }}.zip
 
-  build-source:
-    name: Build Source ZIP
-    needs: get-version
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Create source ZIP
-      run: |
-        VERSION=${{ needs.get-version.outputs.version }}
-        zip -r mgit-src-$VERSION.zip . -x ".git/*" ".github/*" "dist/*" "build/*" "*.pyc" "__pycache__/*" ".pytest_cache/*" ".ruff_cache/*" ".mypy_cache/*"
-
-    - name: Upload source artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: source-zip
-        path: mgit-src-${{ needs.get-version.outputs.version }}.zip
-
   release:
     name: Create Release
-    needs: [get-version, build, build-source]
+    needs: [get-version, build]
     runs-on: ubuntu-latest
 
     steps:
@@ -126,12 +106,10 @@ jobs:
           ## Downloads
 
           - **Linux**: `mgit-linux-${{ needs.get-version.outputs.version }}.zip`
-          - **macOS**: `mgit-mac-${{ needs.get-version.outputs.version }}.zip`
-          - **Windows**: `mgit-win-${{ needs.get-version.outputs.version }}.zip`
-          - **Source**: `mgit-src-${{ needs.get-version.outputs.version }}.zip`
+          - **macOS**: `mgit-macos-${{ needs.get-version.outputs.version }}.zip`  # Changed from mgit-mac
+          - **Windows**: `mgit-windows-${{ needs.get-version.outputs.version }}.zip`  # Changed from mgit-win
         files: |
           ./artifacts/linux-zip/mgit-linux-${{ needs.get-version.outputs.version }}.zip
-          ./artifacts/macos-zip/mgit-mac-${{ needs.get-version.outputs.version }}.zip
-          ./artifacts/windows-zip/mgit-win-${{ needs.get-version.outputs.version }}.zip
-          ./artifacts/source-zip/mgit-src-${{ needs.get-version.outputs.version }}.zip
+          ./artifacts/macos-zip/mgit-macos-${{ needs.get-version.outputs.version }}.zip  # Changed from mgit-mac
+          ./artifacts/windows-zip/mgit-windows-${{ needs.get-version.outputs.version }}.zip  # Changed from mgit-win
 
