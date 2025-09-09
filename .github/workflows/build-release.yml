@@ -254,6 +254,7 @@ jobs:
           **Directory Structure Note**: After unzipping, you'll have a directory (e.g., `mgit-macos`) with the executable inside. Run the executable from within that directory.
         draft: false
         prerelease: false
+        overwrite_files: false
         files: |
           ./artifacts/mgit-linux/mgit-linux/mgit
           ./artifacts/mgit-macos/mgit-macos/mgit
