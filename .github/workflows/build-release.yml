@@ -29,15 +29,6 @@ jobs:
         VERSION=$(grep '__version__' src/_version.py | sed 's/.*= "\(.*\)"/\1/')
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Create and push tag
-      if: github.ref_type != 'tag'
-      run: |
-        VERSION=${{ steps.version.outputs.version }}
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag v$VERSION
-        git push origin v$VERSION
-
   build:
     name: Build for ${{ matrix.os }}
     needs: get-version
