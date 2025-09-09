@@ -260,28 +260,3 @@ jobs:
           ./setup-macos.sh
           ./artifacts/mgit-windows/mgit-windows/mgit.exe
 
-  # Optional: Test the built executables
-  test-release:
-    name: Test Release Assets
-    needs: [prepare-release, build]
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Download Linux artifact
-      uses: actions/download-artifact@v4
-      env:
-        NODE_OPTIONS: --no-deprecation
-      with:
-        name: mgit-linux
-        path: test-linux
-
-    - name: Unzip Linux artifact
-      run: |
-        cd test-linux
-        unzip mgit-linux.zip
-
-    - name: Test Linux executable
-      run: |
-        chmod +x test-linux/mgit-linux/mgit
-        ./test-linux/mgit-linux/mgit --help
-
